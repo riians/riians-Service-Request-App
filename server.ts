@@ -152,14 +152,14 @@ async function sendSMS(phone: string, message: string) {
   console.log(`[SMS to ${phone}]: ${message}`);
 }
 
-async function sendCustomerConfirmation(requestData: any) {
+async function sendCustomerConfirmation(requestData: any, referenceId: string | number) {
   const mailTransporter = getTransporter();
   if (!mailTransporter) return;
 
   const mailOptions = {
     from: `"Rajveer E-Gov System" <${process.env.SMTP_USER}>`,
     to: requestData.email,
-    subject: `Request Received: ${requestData.service_type}`,
+    subject: `Request Received: ${requestData.service_type} (Ref: #${referenceId})`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
         <div style="background-color: #4f46e5; color: white; padding: 24px; text-align: center;">
@@ -168,14 +168,22 @@ async function sendCustomerConfirmation(requestData: any) {
         <div style="padding: 24px; color: #1e293b;">
           <p>Dear ${requestData.name},</p>
           <p>Thank you for submitting your request for <strong>${requestData.service_type}</strong>. We have received your application and our team will review it shortly.</p>
+          
+          <div style="margin: 24px 0; padding: 20px; background-color: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center;">
+            <p style="margin: 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Your Reference ID</p>
+            <p style="margin: 8px 0 0 0; font-size: 28px; font-weight: bold; color: #4f46e5; letter-spacing: 2px;">#${referenceId}</p>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">Please keep this ID safe for future correspondence.</p>
+          </div>
+
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
           <p><strong>Request Details:</strong></p>
           <p>Service: ${requestData.service_type}</p>
-          <p>Status: Pending</p>
-          <p>We will notify you once there is an update on your request.</p>
+          <p>Status: <span style="color: #6366f1; font-weight: bold;">Pending Review</span></p>
+          
+          <p style="margin-top: 24px;">We will notify you via email and SMS once there is an update on your request.</p>
         </div>
         <div style="background-color: #f8fafc; padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
-          © 2026 Rajveer E-Governance Services
+          © 2026 Rajveer E-Governance Services • Badlapur, Mumbai
         </div>
       </div>
     `,
@@ -183,7 +191,7 @@ async function sendCustomerConfirmation(requestData: any) {
 
   try {
     await mailTransporter.sendMail(mailOptions);
-    await sendSMS(requestData.phone, `Hi ${requestData.name}, your request for ${requestData.service_type} has been received. We will notify you of any updates.`);
+    await sendSMS(requestData.phone, `Hi ${requestData.name}, your request for ${requestData.service_type} has been received. Your Reference ID is #${referenceId}. We will notify you of any updates.`);
   } catch (error) {
     console.error("Failed to send customer confirmation:", error);
   }
@@ -403,7 +411,7 @@ async function startServer() {
       
       // Send notification email asynchronously
       sendAdminNotification({ name, email, phone, service_type, description });
-      sendCustomerConfirmation({ name, email, phone, service_type });
+      sendCustomerConfirmation({ name, email, phone, service_type }, info.lastInsertRowid);
 
       res.status(201).json({ id: info.lastInsertRowid });
     } catch (error) {

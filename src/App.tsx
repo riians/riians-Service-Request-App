@@ -115,7 +115,7 @@ export default function App() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | { status: 'success', refId: number }>('idle');
   const [confirmModal, setConfirmModal] = useState<{ 
     isOpen: boolean; 
     requestId: number | null; 
@@ -326,10 +326,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
+      const data = await res.json();
       if (res.ok) {
-        setSubmitStatus('success');
+        setSubmitStatus({ status: 'success', refId: data.id });
         setFormData({ name: '', email: '', phone: '', service_type: '', description: '' });
-        setTimeout(() => setSubmitStatus('idle'), 5000);
+        setTimeout(() => setSubmitStatus('idle'), 10000);
       } else {
         setSubmitStatus('error');
       }
@@ -607,30 +608,46 @@ export default function App() {
               </section>
             ) : (
               <>
-                {/* Services Grid */}
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {SERVICES.map((service, idx) => (
-                    <motion.div
-                      key={service.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="bg-white p-8 rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50 transition-all group cursor-pointer"
-                      onClick={() => {
-                        setServiceDetailsModal({ isOpen: true, service });
-                      }}
-                    >
-                      <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 transition-colors">
-                        <FileText className="w-6 h-6 text-indigo-600 group-hover:text-white transition-colors" />
+                {/* Categorized Services Grid */}
+                <div className="space-y-16">
+                  {SERVICE_CATEGORIES.map((category, catIdx) => (
+                    <section key={catIdx} className="space-y-6">
+                      <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                          {category.icon}
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-900">{category.title}</h2>
                       </div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h3>
-                      <p className="text-slate-600 mb-6">{service.description}</p>
-                      <div className="flex items-center text-indigo-600 font-semibold text-sm">
-                        Apply Now <ChevronRight className="w-4 h-4 ml-1" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {category.services.map((serviceId, idx) => {
+                          const service = SERVICES.find(s => s.id === serviceId);
+                          if (!service) return null;
+                          return (
+                            <motion.div
+                              key={service.id}
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              whileInView={{ opacity: 1, scale: 1 }}
+                              viewport={{ once: true }}
+                              transition={{ delay: idx * 0.05 }}
+                              className="bg-white p-8 rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50 transition-all group cursor-pointer flex flex-col h-full"
+                              onClick={() => {
+                                setServiceDetailsModal({ isOpen: true, service });
+                              }}
+                            >
+                              <div className="flex-grow">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h3>
+                                <p className="text-slate-600 mb-6">{service.description}</p>
+                              </div>
+                              <div className="flex items-center text-indigo-600 font-semibold text-sm mt-auto">
+                                Apply Now <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                              </div>
+                            </motion.div>
+                          );
+                        })}
                       </div>
-                    </motion.div>
+                    </section>
                   ))}
-                </section>
+                </div>
 
                 {/* New Service Directory Section */}
                 <section className="bg-white rounded-[3rem] border border-slate-100 p-12 md:p-20 shadow-sm">
@@ -805,7 +822,7 @@ export default function App() {
                       )}
                     </button>
 
-                    {submitStatus === 'success' && (
+                    {typeof submitStatus === 'object' && submitStatus.status === 'success' && (
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -816,7 +833,11 @@ export default function App() {
                         </div>
                         <div>
                           <p className="font-bold text-lg">Request Submitted Successfully!</p>
-                          <p className="text-sm text-emerald-600/80">We've sent a confirmation to your email and phone. Our team will review your request shortly.</p>
+                          <p className="text-sm text-emerald-600/80 mb-2">We've sent a confirmation to your email and phone. Our team will review your request shortly.</p>
+                          <div className="bg-white px-4 py-2 rounded-lg border border-emerald-200 inline-block">
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 block mb-1">Your Reference ID</span>
+                            <span className="text-xl font-black text-emerald-800 tracking-widest">#{submitStatus.refId}</span>
+                          </div>
                         </div>
                       </motion.div>
                     )}
