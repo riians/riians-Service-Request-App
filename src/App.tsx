@@ -27,7 +27,7 @@ import {
   Camera
 } from 'lucide-react';
 
-type RequestStatus = 'pending' | 'in-progress' | 'completed';
+type RequestStatus = 'pending' | 'in-progress' | 'completed' | 'rejected';
 
 interface ServiceRequest {
   id: number;
@@ -49,22 +49,22 @@ interface AdminProfile {
 }
 
 const SERVICES = [
-  { id: 'pan', name: 'PAN Card Services', description: 'New PAN, Correction, or Reprint' },
-  { id: 'voter', name: 'Voter ID Services', description: 'New Registration, Correction' },
-  { id: 'passport', name: 'Passport Services', description: 'Fresh Passport, Re-issue' },
-  { id: 'aadhaar', name: 'Aadhaar Updates', description: 'Demographic or Biometric updates' },
-  { id: 'aadhaar-pvc', name: 'Aadhar PVC Card', description: 'Order high-quality PVC Aadhaar' },
-  { id: 'aadhaar-demo', name: 'Aadhar Demographic Updates', description: 'Name, DOB, Gender, Address' },
-  { id: 'ration-new', name: 'New Ration Card', description: 'Apply for fresh Ration Card' },
-  { id: 'ration-ekyc', name: 'Ration Card E-KYC', description: 'Complete mandatory E-KYC' },
-  { id: 'banking', name: 'Banking Services', description: 'Account opening & related help' },
-  { id: 'aeps', name: 'AEPS Services', description: 'Aadhaar Enabled Payment System' },
-  { id: 'pf-withdrawal', name: 'PF Withdrawal', description: 'EPFO Withdrawal Services' },
-  { id: 'pf-migration', name: 'PF Migration', description: 'EPFO Account Transfer/Migration' },
-  { id: 'uan-activation', name: 'UAN Activation', description: 'Activate your EPFO UAN' },
-  { id: 'epfo-other', name: 'Other EPFO Services', description: 'All other EPFO related help' },
-  { id: 'license', name: 'Driving License', description: 'Learning, Permanent, or Renewal' },
-  { id: 'income', name: 'Income Certificate', description: 'State/Central Income Proof' },
+  { id: 'pan', name: 'PAN Card Services', description: 'New PAN, Correction, or Reprint', documents_required: 'Aadhaar Card, Passport-sized photographs, Signature' },
+  { id: 'voter', name: 'Voter ID Services', description: 'New Registration, Correction', documents_required: 'Age Proof (Birth Certificate/Aadhaar), Address Proof, Passport-sized photograph' },
+  { id: 'passport', name: 'Passport Services', description: 'Fresh Passport, Re-issue', documents_required: 'Aadhaar Card, PAN Card, Voter ID, 10th Marksheet (for Non-ECR)' },
+  { id: 'aadhaar', name: 'Aadhaar Updates', description: 'Demographic or Biometric updates', documents_required: 'Valid Proof of Identity (POI) and Proof of Address (POA)' },
+  { id: 'aadhaar-pvc', name: 'Aadhar PVC Card', description: 'Order high-quality PVC Aadhaar', documents_required: 'Aadhaar Number or Enrollment ID, Registered Mobile Number' },
+  { id: 'aadhaar-demo', name: 'Aadhar Demographic Updates', description: 'Name, DOB, Gender, Address', documents_required: 'Valid Proof of Identity (POI), Proof of Address (POA), or Proof of DOB' },
+  { id: 'ration-new', name: 'New Ration Card', description: 'Apply for fresh Ration Card', documents_required: 'Aadhaar Cards of all members, Income Certificate, Address Proof, Passport-sized photograph of head of family' },
+  { id: 'ration-ekyc', name: 'Ration Card E-KYC', description: 'Complete mandatory E-KYC', documents_required: 'Ration Card, Aadhaar Card, Registered Mobile Number' },
+  { id: 'banking', name: 'Banking Services', description: 'Account opening & related help', documents_required: 'Aadhaar Card, PAN Card, Passport-sized photographs' },
+  { id: 'aeps', name: 'AEPS Services', description: 'Aadhaar Enabled Payment System', documents_required: 'Aadhaar Number linked to Bank Account, Biometric authentication' },
+  { id: 'pf-withdrawal', name: 'PF Withdrawal', description: 'EPFO Withdrawal Services', documents_required: 'UAN, Aadhaar linked to UAN, Bank Account details, Cancelled Cheque' },
+  { id: 'pf-migration', name: 'PF Migration', description: 'EPFO Account Transfer/Migration', documents_required: 'UAN, Previous Member ID, Current Member ID' },
+  { id: 'uan-activation', name: 'UAN Activation', description: 'Activate your EPFO UAN', documents_required: 'UAN, Aadhaar Number, PAN Number, Registered Mobile Number' },
+  { id: 'epfo-other', name: 'Other EPFO Services', description: 'All other EPFO related help', documents_required: 'UAN and relevant supporting documents based on the specific request' },
+  { id: 'license', name: 'Driving License', description: 'Learning, Permanent, or Renewal', documents_required: 'Age Proof, Address Proof, Passport-sized photographs, Medical Certificate (if applicable)' },
+  { id: 'income', name: 'Income Certificate', description: 'State/Central Income Proof', documents_required: 'Aadhaar Card, Ration Card, Salary Slip/Income Proof, Address Proof' },
 ];
 
 const SERVICE_CATEGORIES = [
@@ -141,6 +141,13 @@ export default function App() {
     isOpen: false,
     request: null,
   });
+  const [serviceDetailsModal, setServiceDetailsModal] = useState<{
+    isOpen: boolean;
+    service: typeof SERVICES[0] | null;
+  }>({
+    isOpen: false,
+    service: null,
+  });
   const [contactFormData, setContactFormData] = useState({
     name: '',
     email: '',
@@ -149,6 +156,10 @@ export default function App() {
   });
   const [isContactSubmitting, setIsContactSubmitting] = useState(false);
   const [contactSubmitStatus, setContactSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // Search States
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
 
   // Profile Update State
   const [profileFormData, setProfileFormData] = useState({
@@ -393,6 +404,17 @@ export default function App() {
     }
   };
 
+  const filteredRequests = requests.filter(req => 
+    req.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+    req.service_type.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+    req.description.toLowerCase().includes(adminSearchQuery.toLowerCase())
+  );
+
+  const filteredServices = SERVICES.filter(service => 
+    service.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+    service.description.toLowerCase().includes(customerSearchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans">
       {/* Navigation */}
@@ -539,68 +561,127 @@ export default function App() {
               </motion.div>
             </section>
 
-            {/* Services Grid */}
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {SERVICES.map((service, idx) => (
-                <motion.div
-                  key={service.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="bg-white p-8 rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50 transition-all group cursor-pointer"
-                >
-                  <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 transition-colors">
-                    <FileText className="w-6 h-6 text-indigo-600 group-hover:text-white transition-colors" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h3>
-                  <p className="text-slate-600 mb-6">{service.description}</p>
-                  <div className="flex items-center text-indigo-600 font-semibold text-sm">
-                    Learn More <ChevronRight className="w-4 h-4 ml-1" />
-                  </div>
-                </motion.div>
-              ))}
-            </section>
-
-            {/* New Service Directory Section */}
-            <section className="bg-white rounded-[3rem] border border-slate-100 p-12 md:p-20 shadow-sm">
-              <div className="text-center space-y-4 mb-16">
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900">Service Directory</h2>
-                <p className="text-slate-500 max-w-2xl mx-auto">Explore our full range of E-Governance solutions categorized for your convenience.</p>
+            {/* Customer Search Bar */}
+            <div className="max-w-2xl mx-auto mb-12">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search for a service (e.g., PAN Card, Aadhaar)..."
+                  value={customerSearchQuery}
+                  onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                  className="w-full pl-14 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg shadow-sm"
+                />
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-                {SERVICE_CATEGORIES.map((cat, idx) => (
-                  <motion.div 
-                    key={idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="space-y-6"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
-                        {cat.icon}
+            {customerSearchQuery ? (
+              <section className="space-y-6">
+                <h2 className="text-2xl font-bold text-slate-900">Search Results</h2>
+                {filteredServices.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredServices.map(service => (
+                      <div key={service.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
+                        <div className="flex-grow">
+                          <h3 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h3>
+                          <p className="text-slate-600 mb-4">{service.description}</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setServiceDetailsModal({ isOpen: true, service });
+                          }}
+                          className="w-full bg-indigo-50 text-indigo-600 py-2 rounded-lg font-semibold hover:bg-indigo-100 transition-colors mt-auto"
+                        >
+                          View Details
+                        </button>
                       </div>
-                      <h3 className="text-xl font-bold text-slate-900">{cat.title}</h3>
-                    </div>
-                    <ul className="space-y-3">
-                      {cat.services.map(sId => {
-                        const s = SERVICES.find(service => service.id === sId);
-                        return s ? (
-                          <li key={sId} className="flex items-start gap-2 group">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors cursor-pointer">{s.name}</p>
-                              <p className="text-xs text-slate-500">{s.description}</p>
-                            </div>
-                          </li>
-                        ) : null;
-                      })}
-                    </ul>
-                  </motion.div>
-                ))}
-              </div>
-            </section>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                    <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-lg font-medium text-slate-900">No services found</p>
+                    <p className="text-slate-500">Try adjusting your search terms.</p>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <>
+                {/* Services Grid */}
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {SERVICES.map((service, idx) => (
+                    <motion.div
+                      key={service.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="bg-white p-8 rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50 transition-all group cursor-pointer"
+                      onClick={() => {
+                        setServiceDetailsModal({ isOpen: true, service });
+                      }}
+                    >
+                      <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 transition-colors">
+                        <FileText className="w-6 h-6 text-indigo-600 group-hover:text-white transition-colors" />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">{service.name}</h3>
+                      <p className="text-slate-600 mb-6">{service.description}</p>
+                      <div className="flex items-center text-indigo-600 font-semibold text-sm">
+                        Apply Now <ChevronRight className="w-4 h-4 ml-1" />
+                      </div>
+                    </motion.div>
+                  ))}
+                </section>
+
+                {/* New Service Directory Section */}
+                <section className="bg-white rounded-[3rem] border border-slate-100 p-12 md:p-20 shadow-sm">
+                  <div className="text-center space-y-4 mb-16">
+                    <h2 className="text-3xl md:text-4xl font-bold text-slate-900">Service Directory</h2>
+                    <p className="text-slate-500 max-w-2xl mx-auto">Explore our full range of E-Governance solutions categorized for your convenience.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                    {SERVICE_CATEGORIES.map((cat, idx) => (
+                      <motion.div 
+                        key={idx}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                            {cat.icon}
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-900">{cat.title}</h3>
+                        </div>
+                        <ul className="space-y-3">
+                          {cat.services.map(sId => {
+                            const s = SERVICES.find(service => service.id === sId);
+                            return s ? (
+                              <li key={sId} className="flex items-start gap-2 group">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
+                                <div className="space-y-0.5">
+                                  <p 
+                                    className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors cursor-pointer"
+                                    onClick={() => {
+                                      setServiceDetailsModal({ isOpen: true, service: s });
+                                    }}
+                                  >
+                                    {s.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500">{s.description}</p>
+                                </div>
+                              </li>
+                            ) : null;
+                          })}
+                        </ul>
+                      </motion.div>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+
 
             {/* Request Form */}
             <section id="request-form" className="max-w-4xl mx-auto bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
@@ -1172,11 +1253,23 @@ export default function App() {
 
                 {adminView === 'requests' ? (
                   <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <h2 className="text-xl font-bold text-slate-900">Service Requests</h2>
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Clock className="w-4 h-4" />
-                        Last updated: {new Date().toLocaleTimeString()}
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search requests..."
+                            value={adminSearchQuery}
+                            onChange={(e) => setAdminSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm w-full sm:w-64"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Clock className="w-4 h-4" />
+                          Last updated: {new Date().toLocaleTimeString()}
+                        </div>
                       </div>
                     </div>
                     
@@ -1201,14 +1294,14 @@ export default function App() {
                                 </div>
                               </td>
                             </tr>
-                          ) : requests.length === 0 ? (
+                          ) : filteredRequests.length === 0 ? (
                             <tr>
                               <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
                                 No requests found.
                               </td>
                             </tr>
                           ) : (
-                            requests.map((req) => (
+                            filteredRequests.map((req) => (
                               <motion.tr 
                                 key={req.id} 
                                 whileHover={{ backgroundColor: "rgba(248, 250, 252, 1)" }}
@@ -1233,6 +1326,7 @@ export default function App() {
                                 <td className="px-6 py-4">
                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                     req.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                                    req.status === 'rejected' ? 'bg-rose-100 text-rose-800' :
                                     req.status === 'in-progress' ? 'bg-amber-100 text-amber-800' :
                                     'bg-indigo-100 text-indigo-800'
                                   }`}>
@@ -1248,7 +1342,8 @@ export default function App() {
                                     >
                                       <option value="pending">Pending</option>
                                       <option value="in-progress">In Progress</option>
-                                      <option value="completed">Completed</option>
+                                      <option value="completed">Completed (Approve)</option>
+                                      <option value="rejected">Rejected</option>
                                     </select>
                                     <button 
                                       onClick={() => handleViewRequest(req)}
@@ -1758,6 +1853,79 @@ export default function App() {
                   className="flex-1 px-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
                 >
                   Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Service Details Modal */}
+      <AnimatePresence>
+        {serviceDetailsModal.isOpen && serviceDetailsModal.service && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setServiceDetailsModal({ isOpen: false, service: null })}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900">{serviceDetailsModal.service.name}</h3>
+                    <p className="text-sm text-slate-500">{serviceDetailsModal.service.description}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setServiceDetailsModal({ isOpen: false, service: null })}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-6 border border-slate-100 mb-8">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                  <h4 className="font-bold text-slate-900">Documents Required</h4>
+                </div>
+                <ul className="space-y-2">
+                  {serviceDetailsModal.service.documents_required?.split(',').map((doc, i) => (
+                    <li key={i} className="flex items-start gap-2 text-slate-700 text-sm">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                      <span>{doc.trim()}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setFormData({ ...formData, service_type: serviceDetailsModal.service!.name });
+                    setServiceDetailsModal({ isOpen: false, service: null });
+                    document.getElementById('request-form')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="flex-1 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                >
+                  Apply Now <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setServiceDetailsModal({ isOpen: false, service: null })}
+                  className="px-6 py-3 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all"
+                >
+                  Close
                 </button>
               </div>
             </motion.div>

@@ -200,6 +200,20 @@ async function sendCustomerStatusUpdate(requestData: any, newStatus: string) {
     'rejected': '#ef4444'
   };
 
+  const statusLabels: any = {
+    'pending': 'Pending Review',
+    'in-progress': 'In Progress',
+    'completed': 'Approved / Completed',
+    'rejected': 'Rejected'
+  };
+
+  const statusMessages: any = {
+    'completed': 'Great news! Your request has been approved and processed successfully.',
+    'rejected': 'We regret to inform you that your request has been rejected. Please contact support for more details.',
+    'in-progress': 'Your request is currently being processed by our team.',
+    'pending': 'Your request is currently in the queue for review.'
+  };
+
   const mailOptions = {
     from: `"Rajveer E-Gov System" <${process.env.SMTP_USER}>`,
     to: requestData.email,
@@ -212,14 +226,18 @@ async function sendCustomerStatusUpdate(requestData: any, newStatus: string) {
         <div style="padding: 24px; color: #1e293b;">
           <p>Dear ${requestData.name},</p>
           <p>The status of your request for <strong>${requestData.service_type}</strong> has been updated.</p>
-          <div style="margin: 24px 0; padding: 16px; background-color: #f8fafc; border-radius: 8px; text-align: center;">
-            <p style="margin: 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">New Status</p>
-            <p style="margin: 8px 0 0 0; font-size: 20px; font-weight: bold; color: ${statusColors[newStatus] || '#4f46e5'}; text-transform: uppercase;">${newStatus}</p>
+          
+          <div style="margin: 24px 0; padding: 24px; background-color: #f8fafc; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0;">
+            <p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold;">New Status</p>
+            <p style="margin: 8px 0; font-size: 24px; font-weight: 800; color: ${statusColors[newStatus] || '#4f46e5'}; text-transform: uppercase;">${statusLabels[newStatus] || newStatus}</p>
+            <p style="margin: 16px 0 0 0; font-size: 15px; color: #475569; line-height: 1.5;">${statusMessages[newStatus] || 'Your request status has been updated.'}</p>
           </div>
-          <p>Thank you for using Rajveer E-Governance Services.</p>
+
+          <p style="font-size: 14px; color: #64748b;">If you have any questions regarding this update, please reply to this email or call our support line.</p>
+          <p style="margin-top: 32px; font-weight: bold;">Thank you for choosing Rajveer Innovations.</p>
         </div>
         <div style="background-color: #f8fafc; padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
-          © 2026 Rajveer E-Governance Services
+          © 2026 Rajveer E-Governance Services • Badlapur, Mumbai
         </div>
       </div>
     `,
@@ -227,7 +245,12 @@ async function sendCustomerStatusUpdate(requestData: any, newStatus: string) {
 
   try {
     await mailTransporter.sendMail(mailOptions);
-    await sendSMS(requestData.phone, `Hi ${requestData.name}, the status of your request for ${requestData.service_type} has been updated to ${newStatus.toUpperCase()}.`);
+    
+    // SMS Notification
+    const smsMessage = `Hi ${requestData.name}, your ${requestData.service_type} request status is now: ${statusLabels[newStatus] || newStatus.toUpperCase()}. ${newStatus === 'completed' ? 'It has been approved!' : ''}`;
+    await sendSMS(requestData.phone, smsMessage);
+    
+    console.log(`Status update notification sent to ${requestData.email} and ${requestData.phone}`);
   } catch (error) {
     console.error("Failed to send status update notification:", error);
   }
