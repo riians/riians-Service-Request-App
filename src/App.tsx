@@ -67,6 +67,34 @@ const SERVICES = [
   { id: 'income', name: 'Income Certificate', description: 'State/Central Income Proof' },
 ];
 
+const SERVICE_CATEGORIES = [
+  {
+    title: 'Identity & Citizenship',
+    icon: <User className="w-6 h-6" />,
+    services: ['pan', 'voter', 'passport', 'aadhaar', 'aadhaar-pvc', 'aadhaar-demo']
+  },
+  {
+    title: 'Social Welfare',
+    icon: <Shield className="w-6 h-6" />,
+    services: ['ration-new', 'ration-ekyc', 'income']
+  },
+  {
+    title: 'Financial Services',
+    icon: <Briefcase className="w-6 h-6" />,
+    services: ['banking', 'aeps']
+  },
+  {
+    title: 'Employment & PF',
+    icon: <FileText className="w-6 h-6" />,
+    services: ['pf-withdrawal', 'pf-migration', 'uan-activation', 'epfo-other']
+  },
+  {
+    title: 'Transport',
+    icon: <ArrowRight className="w-6 h-6" />,
+    services: ['license']
+  }
+];
+
 export default function App() {
   const [view, setView] = useState<'customer' | 'admin' | 'contact' | 'about'>('customer');
   const [adminView, setAdminView] = useState<'requests' | 'profile'>('requests');
@@ -531,6 +559,47 @@ export default function App() {
                   </div>
                 </motion.div>
               ))}
+            </section>
+
+            {/* New Service Directory Section */}
+            <section className="bg-white rounded-[3rem] border border-slate-100 p-12 md:p-20 shadow-sm">
+              <div className="text-center space-y-4 mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900">Service Directory</h2>
+                <p className="text-slate-500 max-w-2xl mx-auto">Explore our full range of E-Governance solutions categorized for your convenience.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                {SERVICE_CATEGORIES.map((cat, idx) => (
+                  <motion.div 
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="space-y-6"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                        {cat.icon}
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900">{cat.title}</h3>
+                    </div>
+                    <ul className="space-y-3">
+                      {cat.services.map(sId => {
+                        const s = SERVICES.find(service => service.id === sId);
+                        return s ? (
+                          <li key={sId} className="flex items-start gap-2 group">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0 group-hover:scale-150 transition-transform" />
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors cursor-pointer">{s.name}</p>
+                              <p className="text-xs text-slate-500">{s.description}</p>
+                            </div>
+                          </li>
+                        ) : null;
+                      })}
+                    </ul>
+                  </motion.div>
+                ))}
+              </div>
             </section>
 
             {/* Request Form */}
